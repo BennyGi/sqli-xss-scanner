@@ -1,132 +1,119 @@
-Basic Web Vulnerability Scanner (Lab-Only)
+# Basic Web Vulnerability Scanner (Lab-Only)
 
-Small Python utility to probe a deliberately vulnerable target (e.g., OWASP Juice Shop / DVWA) for reflected XSS and basic SQLi indicators.
-The scanner is non-destructive and meant for lab use only.
+Small Python utility that probes a deliberately vulnerable target (**OWASP Juice Shop / DVWA**) for **basic SQL injection indicators** and **reflected XSS**.  
+The scanner is **non-destructive** and intended for **local lab use only**.
 
-Legal & Ethics : 
-This tool is for local labs and training. Do not scan systems you don’t own or lack explicit permission to test.
+> **Legal & Ethics** — Use strictly on lab targets you own or have explicit permission to test.  
+> Do **not** scan external systems.
 
-Why I built it : 
+---
 
-I wanted a hands-on security project that shows: crawling/request logic, safe probing, basic detection heuristics, and clean reporting – all on a confined target.
+Screenshots (from local run):
+<img width="641" height="252" alt="Screenshot 2025-09-18 181627" src="https://github.com/user-attachments/assets/2c9c47e0-e875-4de1-881a-7259ab601971" />
+<img width="637" height="410" alt="תצלום מסך 1" src="https://github.com/user-attachments/assets/ce44a367-df41-4521-8a03-05b02684fced" />
+<img width="526" height="147" alt="תצלום מסך 2" src="https://github.com/user-attachments/assets/181ac065-26d4-4b3d-bb1b-05eb7cb8e584" />
 
-What it does (current scope) : 
 
-Sends safe probes to search endpoints/forms.
+---
 
-Flags potential reflected XSS when a unique token is echoed back unescaped.
+##  Why this project?:
+I wanted a compact **hands-on security project** that demonstrates:
+- HTTP request logic
+- Safe probing
+- Simple heuristics
+- Clean reporting
 
-Flags potential SQL injection using non-destructive variations and common DB error fingerprints.
+Without pretending to be a full DAST scanner.
 
-Prints a short summary and can output JSON (planned).
+---
 
-It’s not a full DAST tool. The goal is a clear, minimal PoC that’s easy to read, extend, and reason about.
+## What it does (current scope):
+- Sends safe probes to a **search endpoint/form**.
+- Flags potential **SQLi** using:
+  - Non-destructive variations  
+  - Common DB error fingerprints
+- Flags potential **reflected XSS** when a unique token is echoed back **unescaped**.
+- Prints a **short human-readable summary** (JSON/HTML report planned).
 
-Lab setup (tested with) : 
+---
 
-OWASP Juice Shop running locally on http://127.0.0.1:3000/
-(Docker: docker run --rm -p 3000:3000 bkimminich/juice-shop)
-
+## Lab Setup (tested with):
+- **Target**: OWASP Juice Shop running locally at `http://127.0.0.1:3000/`
+- **Quick start with Docker**:
+  docker run --rm -p 3000:3000 bkimminich/juice-shop
+Requirements: 
 Python 3.10+
-
-Quick start :
-# create & activate a venv (optional)
 python -m venv .venv
-source .venv/bin/activate  # Windows: .venv\Scripts\activate
+source .venv/bin/activate   # Windows: .venv\Scripts\activate
+pip install -r requirements.txt   # or simply: pip install requests
 
-pip install -r requirements.txt
-# or just: pip install requests
+Project Layout:
+/scanner
+  ├── sqli_test.py              # minimal baseline vs. one SQLi/XSS probe
+  ├── sqli_advanced_test.py     # multiple probes + heuristics & summary
+  ├── requirements.txt
+  ├── README.md
+  └── /docs                     # screenshots (see examples above)
+Usage:
+url = "http://127.0.0.1:3000/rest/products/search"
+Run:
+python sqli_test.py
+python sqli_advanced_test.py
+Example Output (abridged):
 
-
-Run the basic test:
-
-python sqli_test.py --url http://127.0.0.1:3000/rest/products/search
-
-
-Run the advanced test:
-
-python sqli_advanced_test.py --url http://127.0.0.1:3000/rest/products/search --mode all --timeout 5
-
-Example output : 
 === Normal Search ===
-GET /search?q=apple -> 200 (text/html; charset=utf-8)
+200 OK ... (first 200 chars)
 
 === SQLi Tests ===
-[+] "' OR '1'='1" -> suspicious length delta (+912) | no WAF block | no redirect
-[ ] "' Or 'a'='a"  -> no clear signal
-[ ] "--" variant   -> blocked (403)
+[+] "' OR '1'='1"  ⇒ Vulnerable (length delta +xxx / error fingerprint matched)
+[ ] "' Or 'a'='a'" ⇒ Not Vulnerable
+[ ] "--" variant   ⇒ Blocked (403)
 
-=== XSS Tests ===
-[+] token echoed unescaped at /rest/products/search?q=XSS_TOKEN_93f1...
-    evidence: appears in HTML body without &lt; &gt; escaping
+=== XSS Test ===
+[+] token XSS_TOKEN_93f1... ⇒ Reflected (possible XSS).
 
-Project structure :
-/scanner
-  sqli_test.py              # minimal test (baseline vs. one sqli/xss probe)
-  sqli_advanced_test.py     # multiple probes, simple heuristics & summary
-  requirements.txt
-  README.md
 
-Heuristics used :
+Heuristics:
+SQLi:
+Compare response length vs. baseline (weak hint, used cautiously)
+Look for DB error snippets (e.g., SQL syntax, near ', SQLite, SequelizeDatabaseError)
+Note unusual status codes, redirects, or content type
 
-SQLi
+Reflected XSS:
+Inject unique token like XSS_TOKEN_<random> instead of <script>
+Flag if it appears unescaped in HTML/JSON (no &lt; &gt;) or inside attributes
 
-Compare response length vs. baseline (weak signal, used as hint only).
+Design Choices:
+Keep scripts small and readable
+Prefer non-destructive probes
+Label findings as “possible / suspicious” with explicit evidence, not absolute truths
 
-Search for common DB error snippets (e.g., "SQL syntax", "near '", "SQLiteException", "SequelizeDatabaseError").
+Results (sample, local):
+Target: single endpoint (/rest/products/search)
+Requests: ~5–10
+Findings: 1 SQLi hint + 1 reflected XSS hint
+Runtime: < 2s on a laptop
 
-Status codes, redirects, or unusual content types.
+Roadmap:
+CLI via argparse (--url, --mode, --timeout, --json-report)
+Robust exception handling & retries
+Simple crawler + form enumeration
+JSON/HTML report with counts & evidence
+Stored-XSS check (delayed verification)
+Throttling + optional asyncio
 
-Reflected XSS :
+Known Limitations:
+Heuristics may cause false positives/negatives
+Current focus: single endpoint only
+No authentication flows yet
 
-Inject a unique token (e.g., XSS_TOKEN_<random>) instead of <script>.
+Safety Notes:
+Destructive payloads are intentionally excluded
+Even in labs: add throttling to avoid overwhelming services
 
-Flag if the token appears unescaped in the HTML/JSON (no &lt;/&gt;) or inside attributes.
-
-Design choices :
-
-Keep it small and readable over “clever”.
-
-Prefer non-destructive probes.
-
-Treat findings as “possible”/“suspicious” with explicit evidence, not absolute truths.
-
-Roadmap :
-
- CLI with argparse (--url, --mode, --json-report)
-
- Robust exception handling, timeouts, and retries
-
- Basic crawler for same-origin links + form enumeration
-
- JSON/HTML report with counts, timings, and evidence
-
- Stored-XSS check (delayed verification)
-
- Rate limiting and concurrency via asyncio
-
-Limitations :
-
-Heuristics only; may yield false positives/negatives.
-
-Currently targets a single endpoint; crawler/forms are planned.
-
-No authentication flows yet.
-
-Safety notes :
-
-Disabled any destructive payloads by design.
-
-Throttle requests in future versions; even labs can be overwhelmed.
-
-License :
-
+License:
 MIT
 
-Photos : 
 
-<img width="641" height="252" alt="Screenshot 2025-09-18 181627" src="https://github.com/user-attachments/assets/3fdf0739-8914-49bf-ae38-198a2da05e4f" />
-
-<img width="637" height="410" alt="תצלום מסך 1" src="https://github.com/user-attachments/assets/e97c478d-43ae-4989-bca0-fe4b0a7d2c48" />
-<img width="526" height="147" alt="תצלום מסך 2" src="https://github.com/user-attachments/assets/6b6dccf1-83fe-400c-b1c7-a2ce95399989" />
-
+Author:
+Benny Giorno 
