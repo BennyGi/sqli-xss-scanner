@@ -55,11 +55,15 @@ pip install -r requirements.txt   # or simply: pip install requests
 
 ## Project Layout:
 /scanner
+
   ├── sqli_test.py              # minimal baseline vs. one SQLi/XSS probe
+
   ├── sqli_advanced_test.py     # multiple probes + heuristics & summary
-  ├── requirements.txt
+
   ├── README.md
+
   └── /docs                     # screenshots (see examples above)
+
 ## Usage:
 url = "http://127.0.0.1:3000/rest/products/search"
 ## Run:
